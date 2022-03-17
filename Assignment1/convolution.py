@@ -1,17 +1,8 @@
-from cv2 import exp
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import math
-import cv2 as cv
 from math import pi
-
-
-def handle_overflow(image : np.array) -> np.array:
-    image = np.where(image < 0, 0, image)
-    u_bound = 1.0 if image.dtype == np.float64 else 255
-    image = np.where(image > u_bound, u_bound, image)
-    return image
 
         
 def convolution(image: np.array, kernel : np.array, pad=True) -> np.array:
@@ -41,7 +32,7 @@ def convolution(image: np.array, kernel : np.array, pad=True) -> np.array:
     if out.shape[2] == 1:
         out = out.reshape(out.shape[:-1])
 
-    return out # handle_overflow(out)
+    return out
 
 
 def convolution_gray_scale(image: np.array, kernel : np.array, pad=True) -> np.array:
