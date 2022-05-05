@@ -28,6 +28,10 @@ def extract_images(data : np.array) -> list[np.array]:
         res_image[0, :, :] = red
         res_image[1, :, :] = green
         res_image[2, :, :] = blue
+        # res_image = np.ones((32, 32, 3)).astype(np.uint8)
+        # res_image[:, :, 0] = red
+        # res_image[:, :, 1] = green
+        # res_image[:, :, 2] = blue
         images.append(res_image)
     return images
 
@@ -64,7 +68,7 @@ def load_data():
 
 
 
-x_train, y_train, x_test, y_test = load_data()
+# x_train, y_train, x_test, y_test = load_data()
 
-print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
+# print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
 print(get_label_names())
