@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
 from torch import nn
-from network import Network, SmallNet
+from network import BigNet, Network, SmallNet
 from torch.utils.data import random_split
 from os.path import exists
 from torch import Tensor
@@ -45,7 +45,8 @@ test_set = torchvision.datasets.CIFAR10(root='./cifar-10/', train=False, downloa
 test_loader = torch.utils.data.DataLoader(test_set, batch_size=64, shuffle=True, num_workers=4)
 
 # model = SmallNet(10)
-model = Network(10)
+# model = Network(10)
+model = BigNet(10)
 if exists("model_state_dict.pth"):
     checkpoint = torch.load("model_state_dict.pth")
     model.load_state_dict(checkpoint)

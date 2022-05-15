@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
 from torch import nn
-from network import Network, SmallNet
+from network import AvgNet, Network, SmallNet
 from torch.utils.data import random_split
 from os.path import exists
 from torch import Tensor
@@ -82,7 +82,8 @@ test_set = torchvision.datasets.CIFAR10(root='./cifar-10/', train=False, downloa
 
 eps = 0.01
 # model = SmallNet(10)
-model = Network(10)
+model = AvgNet(10)
+# model = Network(10)
 if exists("model_state_dict.pth"):
     checkpoint = torch.load("model_state_dict.pth")
     model.load_state_dict(checkpoint)
@@ -92,6 +93,8 @@ if exists("model_state_dict.pth"):
 
 # image, label = test_set[1]
 image, label = test_set[7]
+
+# image, label = test_set[15]
 
 image = image.reshape(1, 3, 32, 32)
 label = torch.as_tensor([label])
