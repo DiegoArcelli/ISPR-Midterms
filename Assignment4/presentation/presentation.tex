@@ -1,0 +1,139 @@
+\documentclass{beamer}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{subfigure}
+\usepackage{makecell}
+\usepackage{mathtools}
+%\usepackage{bibletext}
+\usepackage{bbm}
+\UseRawInputEncoding
+% Cannot enable in Xelatex
+\usepackage{pgfpages}
+% \setbeameroption{hide notes} % Only slides
+% \setbeameroption{show only notes} % Only notes
+% \setbeameroption{show notes on second screen}
+
+% other packages
+\usepackage{latexsym,amsmath,xcolor,multicol,booktabs,calligra}
+\usepackage{graphicx,listings,stackengine}
+\definecolor{LightGray}{gray}{0.95}
+
+%% Enable only in Xelatex
+% \usepackage{pstricks}
+
+\author[Diego Arcelli]{ Diego Arcelli - 647979}
+\title[Automatic Goal Generation in RL]{Automatic Goal generation in Reinforcement Learning}
+%\subtitle{protection against filter-based adversarial examples}
+\institute [University of Pisa] {University of Pisa}
+\date{\scriptsize Accademic Year 2021-2022}
+\usepackage{QUT}
+
+% defs
+\def\cmd#1{\texttt{\color{red}\footnotesize $\backslash$#1}}
+\def\env#1{\texttt{\color{blue}\footnotesize #1}}
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+\definecolor{halfgray}{gray}{0.55}
+
+\lstset{
+	basicstyle=\ttfamily\small,
+	keywordstyle=\bfseries\color{deepblue},
+	emphstyle=\ttfamily\color{deepred},    % Custom highlighting style
+	stringstyle=\color{deepgreen},
+	numbers=left,
+	numberstyle=\small\color{halfgray},
+	rulesepcolor=\color{red!20!green!20!blue!20},
+	frame=shadowbox,
+}
+
+\usecolortheme{orchid}
+
+\begin{document}
+	
+	\begin{frame}
+		\titlepage
+		\begin{figure}[htpb]
+			\begin{center}
+				\includegraphics[width=0.3\linewidth]{images/unipi-logo.png}
+			\end{center}
+		\end{figure}
+	\end{frame}
+	
+	%\begin{frame}
+	% \tableofcontents[sectionstyle=show,subsectionstyle=show/shaded/hide,subsubsectionstyle=show/shaded/hide]
+	%\end{frame}
+
+	%\section{Introduction}
+	
+	\begin{frame}{Introduction}
+		The paper addresses the problem of automatic goal generation in RL, where instead of having just one goal, we're interested in maximizing the expected return of many reward functions, each of which is associated with a different goal $g \in \mathcal{G}$. In the paper they use as reward function $r^g(s_t, a_t, s_{t+1}) = \mathbbm{1}\{s_{t+1} \in S^g\}$, which is $1$ if the agent is in a goal state in $S^g$ (which is the set of states for which being in one of those states satisfies goal $g$), otherwise is 0. In this way the expected return $R^g(\pi)$ can be seen as the probability of reaching a state in $S^g$ in $T$ steps (since $\mathbb{E}[\mathbbm{1}\{event\}] = \mathbb{P}(event)$). If we have a distribution of goals $p_g(g)$ the objective is to find the policy
+		$ \pi^*(a_t|s_t, g) = \arg\max_{\pi} \{ \mathbb{E}_{g \sim p_g(\cdot)}R^g(\pi) \}$
+		which is the policy that maximizes the average probability of success over all the goals.
+	\end{frame}
+
+
+	\begin{frame}{Goal labeling }
+		The distribution from which we wan to sample goals at each iteration $i$, is the follwing: $GOID_i = \{ g \in \mathcal{G} \colon R_{min} \le R^g(\pi_i) \le R_{max}\}$, where $R_{min}$ and $R_{max}$ are respectively the minimum and maximum expected return for a goal $g$ at iteration $i$. They use this distribution to avoid to sample infeasible goals or goals that have already been mastered. To approximate the sampling from $GOID_i$, first we estimate $y_g\in \{0,1\}$ for all $g \in \mathcal{G}$, by computing the fraction of success among all the trajectories that reaches goal $g$ in the previous iteration, and discard it if it's not between $R_{min}$ and $R_{max}$, so $y_g = 0$ means $g \not\in GOID_i$, while $y_g = 1$ means $y_g \in GOID_i$. Then we use those labels to train a Least Square GAN (LSGAN) to uniformly sample from $GOID_i$. A LSGAN is like a normal GAN but it uses the least squares loss to train the generator and the discriminator.
+	\end{frame}
+	
+	\begin{frame}{Equation}
+		\footnotesize
+		The optimization problem that we need to solve in order to train the LSGAN is the following:
+		\scriptsize
+		\begin{equation}
+			\label{eq:1}
+			\min_{D} \Big\{\mathbb{E}_{g \sim p_{data}(g)} \Big[y_g(D(g)-b)^2 + (1-y_g)(D(g)-a)^2\Big] + \mathbb{E}_{z \sim p_z(z)} \Big[D(G(z)-a)^2\Big] \Big\}
+		\end{equation}
+		\begin{equation}
+			\label{eq:2}
+			\min_G\Big\{ \mathbb{E}_{z \sim p_z(z)} \Big[D(G(z)-c)^2\Big] \Big\}
+		\end{equation}
+		\footnotesize
+		 $D(g)$ is the discriminator network which is trained to predict whether a goal is in $GOID_i$ or not. $G(z)$ is the goal generator network that is trained to produce goals from a random input vector $z$, so that $D$ will classify them as goals that belong to $GOID_i$. $b$ is the label that we want $D$ to output if the input goal is in $GOID_i$, otherwise we want $D$ to output $a$. $c$ is the value that $G$ wants $D$ to produce in order to minimize $G$'s loss (they used $b=1$, $a=-1$ and $c=0$). Differently from the original LSGAN formulation, they introduced the binary variables $y_g$ (which are computed as explained in the previous slide) which allow $D$ to learn also when $g$ does not belong to $GOID_i$, and they call this model Goal GAN.
+	\end{frame}
+
+	\begin{frame}{Equation (cont.)}
+		Equation \ref{eq:1} tells that we want to find the parameters of $D$ which minimize both the error of $D$ in recognizing if the actual goals are in $GOID_i$ or not, and the error in recognize data generated from $G$ as not in $GOID_i$. If $g \in GOID_i$ then $y_g = 0$ and so we optimize the term $\mathbb{E}[(D(g)-b)^2]$, which is minimized if $D(g)$ correctly outputs $b$. Conversely if $g \not \in GOID_i$ and so $y_g = 0$, we optimize the term $\mathbb{E}[(D(g)-a)^2]$, which is minimized if $D(g)$ correctly outputs $a$. Without introducing $y_g$, we would only have $\mathbb{E}[(D(g)-b)^2]$ in equation \ref{eq:1}, and so $D$ couldn't have learned from goals which are not in $GOID_i$.\\
+		Equation \ref{eq:2} tells us that we want to find the parameters of $G$ which minimize the error of $D$ in predicting if the goals generated by $G$ are in $GOID_i$ or not. To minimize the loss, we train the parameters of $G$ to push $D$ to output $c$.
+	\end{frame}
+
+	\begin{frame}{Policy training}
+		After the GAN is trained the policy optimization phase can be made, using any policy optimization algorithm (in th paper the used the Trust Region Policy Optimization). So in the end we'll have an iterative algorithm that at each iteration $i$:
+		\begin{enumerate}
+			\item Samples goals from $GOID_i$ using the Goal GAN trained at iteration $i-1$
+			\item Updates the policy using TRPO and computes the return for each reward
+			\item Uses the returns to compute the labels $y_g$ for each $g$
+			\item Uses the labels to train the Goal GAN to approximate the sampling of $GOID_{i+1}$
+		\end{enumerate}
+	\end{frame}
+
+	\begin{frame}{Experimental results}
+		\small
+		The authors test their method in ant locomotive problem, where a quadruped agent has to move first in a free space, and then in a U-shaped maze, in order to arrive from a starting position to another one. The goals are the $(x,y)$ position of the center on mass of the agent (so a 2-dimensional goal space). They're experiments shows the maximization of the coverage with the Goal GAN is faster than other mechanism of sampling. Then they analyze the two dimensional goal space at each iteration, to check the states generated by the Goal GAN, and they conclude that the model is able to generate, at each iteration, goals of the appropriate difficulty
+	\end{frame}
+
+	
+	\begin{frame}{Experimental results}
+		Then they test if their Goal GAN can track a multi-modal distribution by training a point mass agent (which means that the agent can be seen as a point in the space) in a multi-path maze, 
+		Finally, to test if the method can scale to higher dimensional goal spaces, they test it on a $n$-dimensional point mass agent which has to move in an hypercube, however just a subset of the hypercube is reachable from the agent, since in many real world RL applications the set of feasible states is a small subset of the full state space. The experiments show that compared to other methods, their Goal GAN is able to keep an high maximization of the coverage as $n$ increases. 
+	\end{frame}
+
+
+	\begin{frame}{Comments}
+		culo
+	\end{frame}
+	
+	
+	\begin{frame}
+		\frametitle{Bibliography}
+		\footnotesize
+		\nocite{florensa2018automatic}
+		\nocite{mao2017least}
+		\nocite{duan2016benchmarking}
+		\bibliographystyle{unsrt}
+		\bibliography{biblio}
+	\end{frame}
+	
+	
+\end{document}

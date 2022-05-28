@@ -1,1 +1,10 @@
 Assignment3/cifar-10
+*.aux
+*.bbl
+*.blg
+*.log
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
