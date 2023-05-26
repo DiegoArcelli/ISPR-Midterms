@@ -1,0 +1,177 @@
+\documentclass{beamer}
+\usepackage{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{subfigure}
+\usepackage{amsmath}
+\usepackage{wrapfig}
+\usepackage{amssymb}
+\usepackage{makecell}
+\usepackage{mathtools}
+\usepackage{adjustbox}
+%\usepackage{bibletext}
+\usepackage{bbm}
+\UseRawInputEncoding
+% Cannot enable in Xelatex
+\usepackage{pgfpages}
+% \setbeameroption{hide notes} % Only slides
+% \setbeameroption{show only notes} % Only notes
+% \setbeameroption{show notes on second screen}
+
+% other packages
+\usepackage{latexsym,amsmath,xcolor,multicol,booktabs,calligra}
+\usepackage{graphicx,listings,stackengine}
+\definecolor{LightGray}{gray}{0.95}
+
+%% Enable only in Xelatex
+% \usepackage{pstricks}
+
+\author[Diego Arcelli]{ Diego Arcelli - 647979}
+\title[ISPR Midterm 4]{ISPR Midterm 4 \\ Zoneout: Regularizing RNNs by Randomly Preserving Hidden Activations}
+%\subtitle{protection against filter-based adversarial examples}
+\institute [University of Pisa] {University of Pisa}
+\date{\scriptsize Accademic Year 2022-2023}
+\usepackage{QUT}
+
+% defs
+\def\cmd#1{\texttt{\color{red}\footnotesize $\backslash$#1}}
+\def\env#1{\texttt{\color{blue}\footnotesize #1}}
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+\definecolor{halfgray}{gray}{0.55}
+
+\lstset{
+	basicstyle=\ttfamily\small,
+	keywordstyle=\bfseries\color{deepblue},
+	emphstyle=\ttfamily\color{deepred},    % Custom highlighting style
+	stringstyle=\color{deepgreen},
+	numbers=left,
+	numberstyle=\small\color{halfgray},
+	rulesepcolor=\color{red!20!green!20!blue!20},
+	frame=shadowbox,
+}
+
+\usecolortheme{orchid}
+
+\begin{document}
+	
+\begin{frame}
+    \titlepage
+    \begin{figure}[htpb]
+        \begin{center}
+            \includegraphics[width=0.25\linewidth]{images/unipi-logo.png}
+        \end{center}
+    \end{figure}
+\end{frame}
+
+%\begin{frame}
+% \tableofcontents[sectionstyle=show,subsectionstyle=show/shaded/hide,subsubsectionstyle=show/shaded/hide]
+%\end{frame}
+
+\begin{frame}{Introduction to the problem}
+Vanishing gradient in deep neural networks happens when the gradients used to update the network weights become extremely small, making it difficult for the network to learn.
+
+\vspace{0.3cm}
+In RNNs this problem affects the ability of propagating information over long sequences, limiting the ability to capture long-term dependencies.
+
+\vspace{0.3cm}
+The paper addresses the problem of vanishing gradient in RNNs by proposing a new regularization technique called \textbf{zoneout} which aims to favor a better propagation of the gradient during training.
+
+%A major problem of deep neural network is the vanishing gradient, which happens when the gradients used to update the network weights become extremely small, making it difficult for the network to learn. In particular in RNNs this problem affects the ability of propagating information over long sequences, limiting the ability to capture long-term dependencies.
+\end{frame}
+
+
+\begin{frame}{Method description}
+Similarly to dropout, zoneout injects noise during training, but instead of randomly setting some of the units' activation to 0, it set them to their values at the previous time step. 
+
+\vspace{0.3cm}
+At each timestep $t$ a binary mask $d_t$ is randomly generated, the neurons for which the mask value is 0 are set to $h_{t-1}$ while the others are normally updated using the transition operator $h_t = \mathcal{T}(h_{t-1}, x_t)$.
+\vspace{0.3cm}
+\[\text{Dropout:} \quad \mathcal{T} = d_t \odot \Tilde{\mathcal{T}} + (1-d_t) \odot 0\]
+\[ \text{Zoneout:} \quad \mathcal{T} = d_t \odot \Tilde{\mathcal{T}} + (1-d_t) \odot 1 \]
+0 is the null operator and 1 is the identity operator.
+\end{frame}
+
+
+\begin{frame}{Method description}
+
+
+\begin{columns}[t]
+    \begin{column}{.6\textwidth}
+    Zoneout can be seen as dropout applied in this modified computational graph, in which dropout is applied to $\Tilde{h}_t - h_{t-1}$, where $\Tilde{h}_t = \mathcal{T}(h_{t-1}, x_t)$.
+    
+    \vspace{0.3cm}
+    If we don't apply dropout to $\Tilde{h}_t - h_{t-1}$ (dashed connection), then the output is $h_t = (\Tilde{h}_t - h_{t-1}) + h_{t-1} = \Tilde{h}_t$.
+
+    \vspace{0.3cm}
+    If dropout is applied $\Tilde{h}_t - h_{t-1}$ is zeroed and so $h_t = h_{t-1}$.
+    \end{column}
+    \begin{column}{.3\textwidth}
+        \vspace{0.2cm}
+        \adjincludegraphics[width=3.5cm, valign=t]{images/zone_out_graph.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+
+\begin{frame}{Key Catch (I)}
+In LSTM zoneout is applied separately to the memory cell state $c_t$ and the hidden state $h_t$. First we compute the input, forget and output gates:
+\[ i_t = \sigma (W_{xi}x_t +  W_{hi}h_{t-1} + b_i), \quad f_t = \sigma (W_{xf}x_t +  W_{hf}h_{t-1} + b_f) \]
+\[ o_t = \sigma (W_{xo}x_t +  W_{ho}h_{t-1} + b_o) \]
+Then we compute the LSTM updates:
+\[ g_t = \tanh(W_{x}x_t + W_{h}h_{t-1} + b_h) \]
+\[ c_t = d_t^c \odot c_{t-1} + (1-d_t^c) \odot (f_t \odot c_{t-1} + i_t \odot g_t)\]
+\[ h_t = d_t^h \odot h_{t-1} + (1-d_t^h)\odot (o_t\odot \tanh(f_t \odot c_{t-1} + i_t \odot g_t)) \]
+\end{frame}
+
+\begin{frame}{Key Catch (II)}
+The gates $i_t, f_t$ and $o_t$ and $g_t$ are computed as usual. When we compute $c_t$ according to the mask $d_t^c$ some units are set to their previous value $c_{t-1}$ while for the others we apply the usual LSTM update, controlling with $f_t$ the contribution from the previous state $c_{t-1}$ and with $i_t$ the contribution from the current input $g_t$. 
+
+\vspace{0.3cm}
+Also for $h_t$, according to the binary mask $d_h^t$, some units are set to $h_{t-1}$ and the others are updated controlling with $o_{t}$ how much of the cell state $c_t$ we consider to compute $h_t$.
+
+\vspace{0.3cm}
+Note that to compute $h_t$ we don't use the previously computed $c_t$, but we use $f_t \odot c_{t-1} + i_t \odot g_t$, so that the effect of zoneout on $c_t$ doesn't affect the effect of zoneout on $h_t$.
+\end{frame}
+
+
+\begin{frame}{Empirical results (I)}
+Zoneout is compared to dropout on both character and word level language modeling, and also in image classification on the $p$MNIST dataset, by training different RNNs using both regularization methods.
+
+\vspace{0.3cm}
+On every task the results show that every network when trained using zoneout achieves better test performances than when trained with dropout. 
+
+\vspace{0.3cm}
+They also compare their results with the performances on the same datasets of some SoTA recurrent architectures (like hierarchical multi-scale RNN). The networks trained with zoneout are not as good as all of those SoTA models, but they achieve close results.
+
+\end{frame}
+
+\begin{frame}{Empirical results (II)}
+  \begin{columns}      
+    \begin{column}{.5\textwidth}
+    The plot shows the average gradient magnitude at time $t$ of the loss w.r.t. $c_t$ after one epoch of training on the $p$MNIST dataset. We can see that for the model using zoneout in the early timesteps the gradient is higher, hence it has a better gradient propagation to the early timesteps.
+    \end{column}
+    \begin{column}{.5\textwidth}
+        \adjincludegraphics[width=5cm, valign=t]{images/gradient.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Comments}
+The experimental results provided in the paper show that using zoneout as regularizer leads to slightly better performance than using dropout, while having a better gradient propagation which helps in mitigating the vanishing gradient problem.
+
+\vspace{0.3cm}
+Zoneout is a very simple technique and easy to implement. One limitation is that unlike other regularization techniques (like dropout) is designed specifically for RNNs and it cannot be applied to different kind of neural networks.
+\end{frame}	
+
+
+\begin{frame}
+    \frametitle{Bibliography}
+    \footnotesize
+    \nocite{krueger2016zoneout}
+    \bibliographystyle{unsrt}
+    \bibliography{biblio}
+\end{frame}
+	
+	
+\end{document}
